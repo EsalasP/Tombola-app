@@ -2,7 +2,7 @@ import React, { useEffect } from 'react'
 import { getBallInfo } from '../utils/colors'
 
 export const FullscreenOverlay = ({
-  currentBall, animKey, mode,
+  currentBall, animKey, mode, bingoVariant,
   drawn, drawnCount, total, remaining,
   onDraw, onClose,
 }) => {
@@ -24,7 +24,7 @@ export const FullscreenOverlay = ({
     }
   }, [])
 
-  const mainInfo   = currentBall ? getBallInfo(currentBall, mode) : null
+  const mainInfo   = currentBall ? getBallInfo(currentBall, mode, bingoVariant) : null
   const prevBalls  = drawn.slice(1, 6) // 4 balls before the current one
 
   return (
@@ -82,7 +82,7 @@ export const FullscreenOverlay = ({
       {prevBalls.length > 0 && (
         <div className="flex items-center gap-3 mt-8">
           {prevBalls.map((num, i) => {
-            const info = getBallInfo(num, mode)
+            const info = getBallInfo(num, mode, bingoVariant)
             const size = 52 - i * 7
             const fs   = Math.max(16 - i * 2, 10)
             return (

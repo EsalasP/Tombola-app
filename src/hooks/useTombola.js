@@ -2,8 +2,11 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 
 // ─── Pool helpers ────────────────────────────────────────────────────────────
 
-const createPool = (mode) =>
-  Array.from({ length: mode === 'loteria' ? 90 : 75 }, (_, i) => i + 1)
+const totalFor = (mode, bingoVariant) =>
+  mode === 'loteria' ? 90 : (bingoVariant === '90' ? 90 : 75)
+
+const createPool = (mode, bingoVariant) =>
+  Array.from({ length: totalFor(mode, bingoVariant) }, (_, i) => i + 1)
 
 // ─── Web Audio API ────────────────────────────────────────────────────────────
 
@@ -64,12 +67,12 @@ const BINGO_LETTERS = ['B', 'I', 'N', 'G', 'O']
 
 /**
  * Reads a number aloud using the browser's speech synthesis.
- * In bingo mode prepends the column letter with a short pause.
+ * In bingo-75 mode prepends the column letter with a short pause.
  */
-const speak = (num, mode) => {
+const speak = (num, mode, bingoVariant) => {
   if (!globalThis.speechSynthesis) return
   globalThis.speechSynthesis.cancel()
-  const label = mode === 'bingo'
+  const label = mode === 'bingo' && bingoVariant !== '90'
     ? `${BINGO_LETTERS[Math.floor((num - 1) / 15)]}, ${num}`
     : String(num)
   const utter = new SpeechSynthesisUtterance(label)
@@ -82,8 +85,9 @@ const speak = (num, mode) => {
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export const useTombola = () => {
-  const [mode, _setMode]          = useState('loteria')
-  const [pool, setPool]           = useState(() => createPool('loteria'))
+  const [mode, _setMode]              = useState('loteria')
+  const [bingoVariant, _setBingoVariant] = useState('75') // '75' | '90', only relevant when mode === 'bingo'
+  const [pool, setPool]           = useState(() => createPool('loteria', '75'))
   const [drawn, setDrawn]         = useState([])
   const [currentBall, setCurrent] = useState(null)
   const [animKey, setAnimKey]     = useState(0)
@@ -93,12 +97,14 @@ export const useTombola = () => {
   const [voiceOn, setVoiceOn]     = useState(true)
 
   // Stable refs so drawNumber never captures stale values
-  const poolRef    = useRef(pool)
-  const modeRef    = useRef(mode)
-  const voiceOnRef = useRef(voiceOn)
-  poolRef.current    = pool
-  modeRef.current    = mode
-  voiceOnRef.current = voiceOn
+  const poolRef         = useRef(pool)
+  const modeRef         = useRef(mode)
+  const bingoVariantRef = useRef(bingoVariant)
+  const voiceOnRef      = useRef(voiceOn)
+  poolRef.current         = pool
+  modeRef.current         = mode
+  bingoVariantRef.current = bingoVariant
+  voiceOnRef.current      = voiceOn
 
   const drawNumber = useCallback(() => {
     const p = poolRef.current
@@ -111,21 +117,30 @@ export const useTombola = () => {
     setCurrent(num)
     setAnimKey(k => k + 1)
     playPop()
-    if (voiceOnRef.current) speak(num, modeRef.current)
+    if (voiceOnRef.current) speak(num, modeRef.current, bingoVariantRef.current)
     if (next.length === 0) setTimeout(playFanfare, 350)
   }, [])
 
   const reset = useCallback(() => {
-    setPool(createPool(mode))
+    setPool(createPool(mode, bingoVariant))
     setDrawn([])
     setCurrent(null)
     setAnimKey(0)
     setAutoMode(false)
-  }, [mode])
+  }, [mode, bingoVariant])
 
   const switchMode = useCallback((newMode) => {
     _setMode(newMode)
-    setPool(createPool(newMode))
+    setPool(createPool(newMode, bingoVariantRef.current))
+    setDrawn([])
+    setCurrent(null)
+    setAnimKey(0)
+    setAutoMode(false)
+  }, [])
+
+  const setBingoVariant = useCallback((variant) => {
+    _setBingoVariant(variant)
+    setPool(createPool('bingo', variant))
     setDrawn([])
     setCurrent(null)
     setAnimKey(0)
@@ -162,14 +177,14 @@ export const useTombola = () => {
   }, [drawNumber])
 
   return {
-    mode, pool, drawn, currentBall, animKey,
+    mode, bingoVariant, pool, drawn, currentBall, animKey,
     autoMode, autoSpeed,
     voiceOn, setVoiceOn,
     showFullscreen: showFS,
     setShowFullscreen: setShowFS,
-    drawNumber, reset, switchMode,
+    drawNumber, reset, switchMode, setBingoVariant,
     setAutoMode, setAutoSpeed,
-    total:      mode === 'loteria' ? 90 : 75,
+    total:      totalFor(mode, bingoVariant),
     drawnCount: drawn.length,
     remaining:  pool.length,
   }

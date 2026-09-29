@@ -1,7 +1,7 @@
 import React from 'react'
 import { getBallInfo } from '../utils/colors'
 
-export const BallDisplay = ({ currentBall, animKey, mode }) => {
+export const BallDisplay = ({ currentBall, animKey, mode, bingoVariant }) => {
   if (!currentBall) {
     return (
       <div className="flex items-center justify-center w-44 h-44 rounded-full bg-gray-100 select-none">
@@ -10,7 +10,7 @@ export const BallDisplay = ({ currentBall, animKey, mode }) => {
     )
   }
 
-  const info = getBallInfo(currentBall, mode)
+  const info = getBallInfo(currentBall, mode, bingoVariant)
 
   return (
     <div
