@@ -1,7 +1,7 @@
 import React from 'react'
 import { getBallInfo } from '../utils/colors'
 
-export const RecentBalls = ({ drawn, mode, bingoVariant }) => {
+export const RecentBalls = ({ drawn, mode }) => {
   const recent = drawn.slice(0, 7)
 
   if (recent.length === 0) {
@@ -19,7 +19,7 @@ export const RecentBalls = ({ drawn, mode, bingoVariant }) => {
       </span>
       <div className="flex gap-1.5 flex-wrap">
         {recent.map((num, i) => {
-          const info = getBallInfo(num, mode, bingoVariant)
+          const info = getBallInfo(num, mode)
           return (
             <div
               key={`${num}-${i}`}

@@ -6,9 +6,13 @@ import { NumberGrid }        from './components/NumberGrid'
 import { Controls }          from './components/Controls'
 import { RecentBalls }       from './components/RecentBalls'
 import { FullscreenOverlay } from './components/FullscreenOverlay'
+import { BingoSampleCard }   from './components/BingoSampleCard'
+import { WinPatternSelector } from './components/WinPatternSelector'
 
 export default function App() {
   const t = useTombola()
+
+  const isBingo = t.mode === 'bingo'
 
   // Request native fullscreen from within a user-gesture handler for
   // maximum browser compatibility (gesture trust expires asynchronously).
@@ -26,11 +30,12 @@ export default function App() {
           currentBall={t.currentBall}
           animKey={t.animKey}
           mode={t.mode}
-          bingoVariant={t.bingoVariant}
           drawn={t.drawn}
           drawnCount={t.drawnCount}
           total={t.total}
           remaining={t.remaining}
+          winPattern={t.winPattern}
+          targetLetter={t.targetLetter}
           onDraw={t.drawNumber}
           onClose={() => t.setShowFullscreen(false)}
         />
@@ -46,8 +51,6 @@ export default function App() {
           <ModeSelector
             mode={t.mode}
             onSwitch={t.switchMode}
-            bingoVariant={t.bingoVariant}
-            onSwitchBingoVariant={t.setBingoVariant}
           />
         </div>
 
@@ -62,7 +65,6 @@ export default function App() {
                 currentBall={t.currentBall}
                 animKey={t.animKey}
                 mode={t.mode}
-                bingoVariant={t.bingoVariant}
               />
               <div className="flex gap-8 text-center w-full justify-center">
                 <div>
@@ -87,8 +89,23 @@ export default function App() {
 
             {/* Recent balls */}
             <div className="bg-white rounded-2xl p-4 shadow-sm">
-              <RecentBalls drawn={t.drawn} mode={t.mode} bingoVariant={t.bingoVariant} />
+              <RecentBalls drawn={t.drawn} mode={t.mode} />
             </div>
+
+            {/* Patron de victoria — solo tiene sentido con letras B-I-N-G-O */}
+            {isBingo && (
+              <div className="bg-white rounded-2xl p-4 shadow-sm">
+                <WinPatternSelector
+                  pattern={t.winPattern}
+                  onSetPattern={t.setWinPattern}
+                  targetLetter={t.targetLetter}
+                  onSetTargetLetter={t.setTargetLetter}
+                  onDrawTargetLetter={t.drawTargetLetter}
+                  drawAllLetters={t.drawAllLetters}
+                  onSetDrawAllLetters={t.setDrawAllLetters}
+                />
+              </div>
+            )}
 
             {/* Controls */}
             <div className="bg-white rounded-2xl p-4 shadow-sm">
@@ -108,16 +125,27 @@ export default function App() {
 
           </div>
 
-          {/* ── Right column: number board ───────────────────────────── */}
-          <div className="lg:col-span-2 bg-white rounded-2xl p-5 shadow-sm">
-            <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
-              {t.mode === 'loteria'
-                ? 'Tablero — 1 al 90'
-                : t.bingoVariant === '90'
-                  ? 'Tablero — Bingo 90 (1 al 90)'
-                  : 'Tablero — B I N G O'}
-            </h2>
-            <NumberGrid mode={t.mode} bingoVariant={t.bingoVariant} drawn={t.drawn} />
+          {/* ── Right column: number board + carton de muestra ───────── */}
+          <div className="lg:col-span-2 flex flex-col gap-5">
+
+            <div className="bg-white rounded-2xl p-5 shadow-sm">
+              <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
+                {t.mode === 'loteria' ? 'Tablero — 1 al 90' : 'Tablero — B I N G O'}
+              </h2>
+              <NumberGrid mode={t.mode} drawn={t.drawn} />
+            </div>
+
+            {isBingo && (
+              <div className="bg-white rounded-2xl p-5 shadow-sm">
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 text-center">
+                  Carton de muestra
+                </p>
+                <div className="max-w-xs mx-auto">
+                  <BingoSampleCard pattern={t.winPattern} targetLetter={t.targetLetter} />
+                </div>
+              </div>
+            )}
+
           </div>
 
         </div>

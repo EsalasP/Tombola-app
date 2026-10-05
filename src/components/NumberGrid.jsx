@@ -1,8 +1,13 @@
 import React from 'react'
-import { getBallInfo, BINGO_COLUMNS, BINGO_90_COLUMNS } from '../utils/colors'
+import { getBallInfo, BINGO_COLUMNS } from '../utils/colors'
+
+const INACTIVE = {
+  light: { backgroundColor: '#e5e7eb', color: '#6b7280' },
+  dark:  { backgroundColor: '#2d2060', color: 'rgba(255,255,255,0.25)' },
+}
 
 // Loteria: 10 cols x 9 rows (numbers 1-90, left-to-right, top-to-bottom)
-const LotteriaGrid = ({ drawnSet }) => (
+const LotteriaGrid = ({ drawnSet, dark }) => (
   <div className="grid grid-cols-10 gap-1">
     {Array.from({ length: 90 }, (_, i) => i + 1).map(num => {
       const hit  = drawnSet.has(num)
@@ -12,13 +17,9 @@ const LotteriaGrid = ({ drawnSet }) => (
           key={num}
           title={String(num)}
           className={`aspect-square flex items-center justify-center rounded text-xs font-bold transition-all duration-300 ${
-            hit ? 'shadow-sm scale-105' : 'opacity-25'
+            hit ? 'shadow-sm scale-105' : dark ? '' : 'opacity-25'
           }`}
-          style={
-            hit
-              ? { backgroundColor: info.bg, color: info.text }
-              : { backgroundColor: '#e5e7eb', color: '#6b7280' }
-          }
+          style={hit ? { backgroundColor: info.bg, color: info.text } : INACTIVE[dark ? 'dark' : 'light']}
         >
           {num}
         </div>
@@ -28,7 +29,7 @@ const LotteriaGrid = ({ drawnSet }) => (
 )
 
 // Bingo: 5 rows (B I N G O) x 15 numbers each — horizontal layout, no scroll needed
-const BingoGrid = ({ drawnSet }) => (
+const BingoGrid = ({ drawnSet, dark }) => (
   <div className="flex flex-col gap-1.5">
     {BINGO_COLUMNS.map(col => (
       <div key={col.letter} className="flex gap-1 items-center">
@@ -47,13 +48,9 @@ const BingoGrid = ({ drawnSet }) => (
               key={num}
               title={String(num)}
               className={`w-8 h-8 flex-shrink-0 flex items-center justify-center rounded text-xs font-bold transition-all duration-300 ${
-                hit ? 'shadow-sm scale-105' : 'opacity-25'
+                hit ? 'shadow-sm scale-105' : dark ? '' : 'opacity-25'
               }`}
-              style={
-                hit
-                  ? { backgroundColor: col.bg, color: col.text }
-                  : { backgroundColor: '#e5e7eb', color: '#6b7280' }
-              }
+              style={hit ? { backgroundColor: col.bg, color: col.text } : INACTIVE[dark ? 'dark' : 'light']}
             >
               {num}
             </div>
@@ -64,48 +61,9 @@ const BingoGrid = ({ drawnSet }) => (
   </div>
 )
 
-// Bingo 90 bolas (estilo europeo): 9 columnas x 10 numeros — mismo layout que BingoGrid
-// pero con la etiqueta de rango en vez de una letra B-I-N-G-O
-const Bingo90Grid = ({ drawnSet }) => (
-  <div className="flex flex-col gap-1.5">
-    {BINGO_90_COLUMNS.map(col => (
-      <div key={col.label} className="flex gap-1 items-center">
-        {/* Etiqueta de rango */}
-        <div
-          className="w-11 h-8 flex-shrink-0 rounded-lg flex items-center justify-center font-black text-[10px] select-none"
-          style={{ backgroundColor: col.bg, color: col.text }}
-        >
-          {col.label}
-        </div>
-        {/* 10 numeros */}
-        {Array.from({ length: 10 }, (_, i) => col.min + i).map(num => {
-          const hit = drawnSet.has(num)
-          return (
-            <div
-              key={num}
-              title={String(num)}
-              className={`w-8 h-8 flex-shrink-0 flex items-center justify-center rounded text-xs font-bold transition-all duration-300 ${
-                hit ? 'shadow-sm scale-105' : 'opacity-25'
-              }`}
-              style={
-                hit
-                  ? { backgroundColor: col.bg, color: col.text }
-                  : { backgroundColor: '#e5e7eb', color: '#6b7280' }
-              }
-            >
-              {num}
-            </div>
-          )
-        })}
-      </div>
-    ))}
-  </div>
-)
-
-export const NumberGrid = ({ mode, bingoVariant, drawn }) => {
+export const NumberGrid = ({ mode, drawn, dark = false }) => {
   const drawnSet = new Set(drawn)
-  if (mode === 'loteria') return <LotteriaGrid drawnSet={drawnSet} />
-  return bingoVariant === '90'
-    ? <Bingo90Grid drawnSet={drawnSet} />
-    : <BingoGrid   drawnSet={drawnSet} />
+  return mode === 'loteria'
+    ? <LotteriaGrid drawnSet={drawnSet} dark={dark} />
+    : <BingoGrid    drawnSet={drawnSet} dark={dark} />
 }

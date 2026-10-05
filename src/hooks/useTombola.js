@@ -2,11 +2,10 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 
 // ─── Pool helpers ────────────────────────────────────────────────────────────
 
-const totalFor = (mode, bingoVariant) =>
-  mode === 'loteria' ? 90 : (bingoVariant === '90' ? 90 : 75)
+const totalFor = (mode) => (mode === 'loteria' ? 90 : 75)
 
-const createPool = (mode, bingoVariant) =>
-  Array.from({ length: totalFor(mode, bingoVariant) }, (_, i) => i + 1)
+const createPool = (mode) =>
+  Array.from({ length: totalFor(mode) }, (_, i) => i + 1)
 
 // ─── Web Audio API ────────────────────────────────────────────────────────────
 
@@ -65,14 +64,28 @@ const playFanfare = () => {
 
 const BINGO_LETTERS = ['B', 'I', 'N', 'G', 'O']
 
+/** [min, max] number range covered by a B-I-N-G-O letter column */
+const letterRange = (letter) => {
+  const i = BINGO_LETTERS.indexOf(letter)
+  return [i * 15 + 1, i * 15 + 15]
+}
+
+/** Numbers still drawable given the current letter-restriction settings */
+const drawableFrom = (pool, mode, winPattern, targetLetter, drawAllLetters) => {
+  const restricted = mode === 'bingo' && winPattern === 'letra' && targetLetter && !drawAllLetters
+  if (!restricted) return pool
+  const [min, max] = letterRange(targetLetter)
+  return pool.filter(n => n >= min && n <= max)
+}
+
 /**
  * Reads a number aloud using the browser's speech synthesis.
- * In bingo-75 mode prepends the column letter with a short pause.
+ * In bingo mode prepends the column letter with a short pause.
  */
-const speak = (num, mode, bingoVariant) => {
+const speak = (num, mode) => {
   if (!globalThis.speechSynthesis) return
   globalThis.speechSynthesis.cancel()
-  const label = mode === 'bingo' && bingoVariant !== '90'
+  const label = mode === 'bingo'
     ? `${BINGO_LETTERS[Math.floor((num - 1) / 15)]}, ${num}`
     : String(num)
   const utter = new SpeechSynthesisUtterance(label)
@@ -85,9 +98,8 @@ const speak = (num, mode, bingoVariant) => {
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export const useTombola = () => {
-  const [mode, _setMode]              = useState('loteria')
-  const [bingoVariant, _setBingoVariant] = useState('75') // '75' | '90', only relevant when mode === 'bingo'
-  const [pool, setPool]           = useState(() => createPool('loteria', '75'))
+  const [mode, _setMode]          = useState('loteria')
+  const [pool, setPool]           = useState(() => createPool('loteria'))
   const [drawn, setDrawn]         = useState([])
   const [currentBall, setCurrent] = useState(null)
   const [animKey, setAnimKey]     = useState(0)
@@ -95,70 +107,82 @@ export const useTombola = () => {
   const [autoSpeed, setAutoSpeed] = useState(2)
   const [showFS, setShowFS]       = useState(false)
   const [voiceOn, setVoiceOn]     = useState(true)
+  const [winPattern, _setWinPattern]   = useState(null) // 'linea' | 'dos-lineas' | 'figura' | 'full' | 'letra' | null
+  const [targetLetter, setTargetLetter] = useState(null) // only relevant when winPattern === 'letra'
+  const [drawAllLetters, setDrawAllLetters] = useState(true) // false = only draw from targetLetter's column
 
   // Stable refs so drawNumber never captures stale values
-  const poolRef         = useRef(pool)
-  const modeRef         = useRef(mode)
-  const bingoVariantRef = useRef(bingoVariant)
-  const voiceOnRef      = useRef(voiceOn)
-  poolRef.current         = pool
-  modeRef.current         = mode
-  bingoVariantRef.current = bingoVariant
-  voiceOnRef.current      = voiceOn
+  const poolRef           = useRef(pool)
+  const modeRef           = useRef(mode)
+  const voiceOnRef        = useRef(voiceOn)
+  const winPatternRef     = useRef(winPattern)
+  const targetLetterRef   = useRef(targetLetter)
+  const drawAllLettersRef = useRef(drawAllLetters)
+  poolRef.current           = pool
+  modeRef.current           = mode
+  voiceOnRef.current        = voiceOn
+  winPatternRef.current     = winPattern
+  targetLetterRef.current   = targetLetter
+  drawAllLettersRef.current = drawAllLetters
 
   const drawNumber = useCallback(() => {
     const p = poolRef.current
-    if (p.length === 0) return
-    const idx  = Math.floor(Math.random() * p.length)
-    const num  = p[idx]
-    const next = p.filter((_, i) => i !== idx)
+    const candidates = drawableFrom(
+      p, modeRef.current, winPatternRef.current, targetLetterRef.current, drawAllLettersRef.current
+    )
+    if (candidates.length === 0) return
+    const num  = candidates[Math.floor(Math.random() * candidates.length)]
+    const next = p.filter(n => n !== num)
     setPool(next)
     setDrawn(prev => [num, ...prev])
     setCurrent(num)
     setAnimKey(k => k + 1)
     playPop()
-    if (voiceOnRef.current) speak(num, modeRef.current, bingoVariantRef.current)
+    if (voiceOnRef.current) speak(num, modeRef.current)
     if (next.length === 0) setTimeout(playFanfare, 350)
   }, [])
 
   const reset = useCallback(() => {
-    setPool(createPool(mode, bingoVariant))
+    setPool(createPool(mode))
     setDrawn([])
     setCurrent(null)
     setAnimKey(0)
     setAutoMode(false)
-  }, [mode, bingoVariant])
+  }, [mode])
 
   const switchMode = useCallback((newMode) => {
     _setMode(newMode)
-    setPool(createPool(newMode, bingoVariantRef.current))
+    setPool(createPool(newMode))
     setDrawn([])
     setCurrent(null)
     setAnimKey(0)
     setAutoMode(false)
+    if (newMode !== 'bingo') { _setWinPattern(null); setTargetLetter(null); setDrawAllLetters(true) }
   }, [])
 
-  const setBingoVariant = useCallback((variant) => {
-    _setBingoVariant(variant)
-    setPool(createPool('bingo', variant))
-    setDrawn([])
-    setCurrent(null)
-    setAnimKey(0)
-    setAutoMode(false)
+  const setWinPattern = useCallback((pattern) => {
+    _setWinPattern(pattern)
+    if (pattern !== 'letra') { setTargetLetter(null); setDrawAllLetters(true) }
   }, [])
+
+  const drawTargetLetter = useCallback(() => {
+    setTargetLetter(BINGO_LETTERS[Math.floor(Math.random() * BINGO_LETTERS.length)])
+  }, [])
+
+  const remaining = drawableFrom(pool, mode, winPattern, targetLetter, drawAllLetters).length
 
   // ── Auto-play interval ──────────────────────────────────────────────────────
   useEffect(() => {
     if (!autoMode) return
-    if (poolRef.current.length === 0) { setAutoMode(false); return }
+    if (remaining === 0) { setAutoMode(false); return }
     const id = setInterval(drawNumber, autoSpeed * 1000)
     return () => clearInterval(id)
-  }, [autoMode, autoSpeed, drawNumber])
+  }, [autoMode, autoSpeed, drawNumber, remaining])
 
-  // Stop auto when pool empties mid-interval
+  // Stop auto when the drawable pool empties mid-interval
   useEffect(() => {
-    if (pool.length === 0 && autoMode) setAutoMode(false)
-  }, [pool.length, autoMode])
+    if (remaining === 0 && autoMode) setAutoMode(false)
+  }, [remaining, autoMode])
 
   // ── Global keyboard shortcuts ───────────────────────────────────────────────
   useEffect(() => {
@@ -177,15 +201,17 @@ export const useTombola = () => {
   }, [drawNumber])
 
   return {
-    mode, bingoVariant, pool, drawn, currentBall, animKey,
+    mode, pool, drawn, currentBall, animKey,
     autoMode, autoSpeed,
     voiceOn, setVoiceOn,
+    winPattern, setWinPattern, targetLetter, setTargetLetter, drawTargetLetter,
+    drawAllLetters, setDrawAllLetters,
     showFullscreen: showFS,
     setShowFullscreen: setShowFS,
-    drawNumber, reset, switchMode, setBingoVariant,
+    drawNumber, reset, switchMode,
     setAutoMode, setAutoSpeed,
-    total:      totalFor(mode, bingoVariant),
+    total:      totalFor(mode),
     drawnCount: drawn.length,
-    remaining:  pool.length,
+    remaining,
   }
 }
